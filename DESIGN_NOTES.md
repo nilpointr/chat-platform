@@ -45,10 +45,29 @@ while building a working product that can be iterated on.
    (chat history)            rolls history
 ```
 
+### 4. Streaming responses — SSE over `POST /chat`
+
+- Backend uses `AsyncAnthropic` + `client.messages.stream()` inside a
+  FastAPI `StreamingResponse`
+- Protocol: Server-Sent Events (SSE) over a standard HTTP POST. Three
+  event types:
+  - `{"type": "delta", "text": "..."}` — a text chunk from the model
+  - `{"type": "metadata", "model": "...", "input_tokens": N, "output_tokens": N, "stop_reason": "..."}` — emitted once after the stream ends
+  - `{"type": "error", "message": "..."}` — emitted if the API call fails
+  - `data: [DONE]` — sentinel to mark end of stream
+- Frontend reads the stream with `ReadableStream` / `getReader()`, buffers
+  lines to handle chunk boundaries, and updates React state per token
+- Bouncing dots appear while `content === ""` (waiting for first token);
+  replaced by growing text once tokens arrive
+- Metadata bar appears below each assistant message after streaming
+  completes, showing: model, input/output token counts, stop reason,
+  time-to-first-token (TTFT), and total elapsed time
+- Mock mode streams word-by-word instantly; real mode shows natural
+  network latency between tokens
+
 ## Open Items / Next Iterations
 
-- Decide value of N for the rolling window
-- Streaming responses (vs. wait-for-complete)
 - System prompt / persona
+- Token budget trimming (alternative to fixed rolling window)
 - LangChain or LangGraph integration (agents, RAG)
 - Deployment

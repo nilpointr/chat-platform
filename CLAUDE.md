@@ -8,8 +8,14 @@ AI-enabled chatbot MVP. Goal: learn concepts, iterate from working wiring.
 - **History:** React state only — no DB, no persistence between sessions
 
 ## Context management
-Rolling window of last N messages per request. N not yet decided.
+Rolling window of last 10 messages per request (`ROLLING_WINDOW = 10`).
 No system prompt/persona yet.
+
+## Streaming
+`POST /chat` returns SSE (`text/event-stream`). Backend uses `AsyncAnthropic` +
+`client.messages.stream()`. Events: `delta` (text chunk), `metadata` (token counts,
+stop_reason, model), `error`, `[DONE]`. Frontend uses `ReadableStream` / `getReader()`.
+Metadata bar shown below each assistant message.
 
 ## Principles
 - Keep context window small → cost discipline

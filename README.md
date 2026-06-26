@@ -106,7 +106,8 @@ The app will be available at `http://localhost:3000`.
 
 ### `POST /chat`
 
-Accepts a conversation history and returns the assistant's next message.
+Accepts a conversation history and streams the assistant's response as
+Server-Sent Events (SSE).
 
 **Request body**
 
@@ -120,19 +121,31 @@ Accepts a conversation history and returns the assistant's next message.
 }
 ```
 
-**Response**
+**Response** — `text/event-stream`
 
-```json
-{
-  "message": "FastAPI is a modern Python web framework..."
-}
 ```
+data: {"type": "delta", "text": "FastAPI "}
+
+data: {"type": "delta", "text": "is a modern "}
+
+data: {"type": "metadata", "model": "claude-haiku-4-5-20251001", "input_tokens": 24, "output_tokens": 118, "stop_reason": "end_turn"}
+
+data: [DONE]
+```
+
+Event types:
+
+| Type | When | Fields |
+|------|------|--------|
+| `delta` | Each text chunk | `text` |
+| `metadata` | After stream ends | `model`, `input_tokens`, `output_tokens`, `stop_reason` |
+| `error` | On API failure | `message` |
 
 **Notes**
 - The backend applies a rolling window of the last 10 messages before
   forwarding to the model, keeping context costs bounded.
-- The model used is `claude-haiku-4-5` — fast and cost-efficient for
-  development.
+- The model used is `claude-haiku-4-5-20251001` — fast and cost-efficient
+  for development.
 
 ## Key Concepts
 
@@ -142,9 +155,17 @@ to the last N messages. This keeps the context window bounded and API
 costs predictable. The value of N is set via `ROLLING_WINDOW` in
 `backend/main.py`.
 
+**Streaming (SSE)** — The backend streams tokens from the model as they
+arrive using `AsyncAnthropic` + `client.messages.stream()`, wrapped in a
+FastAPI `StreamingResponse`. The frontend reads the stream with the
+`ReadableStream` API and updates React state per chunk, giving the
+"typing" effect. A `metadata` event at the end carries token counts, stop
+reason, and model name — displayed below each message as an under-the-hood
+panel.
+
 ## Roadmap
 
-- [ ] Streaming responses
+- [x] Streaming responses
 - [ ] System prompt / persona configuration
 - [ ] Token budget trimming (alternative to fixed rolling window)
 - [ ] LangChain / LangGraph integration (agents, RAG)

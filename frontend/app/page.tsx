@@ -2,9 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type MessageMeta = {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  stopReason: string;
+  ttft: number;
+  elapsed: number;
+};
+
 type Message = {
   role: "user" | "assistant";
   content: string;
+  meta?: MessageMeta;
 };
 
 const BACKEND_URL = "http://localhost:8000";
@@ -17,7 +27,7 @@ export default function Home() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,27 +35,87 @@ export default function Home() {
     if (!text || loading) return;
 
     const userMessage: Message = { role: "user", content: text };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    const historyForBackend = [...messages, userMessage];
+    setMessages([...historyForBackend, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
+
+    const startTime = Date.now();
+    let ttft: number | null = null;
 
     try {
       const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: historyForBackend }),
       });
 
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      if (!res.body) throw new Error("No response body");
 
-      const data = await res.json();
-      setMessages([...nextMessages, { role: "assistant", content: data.message }]);
-    } catch (err) {
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: "Something went wrong. Please try again." },
-      ]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+
+          const event = JSON.parse(data);
+
+          if (event.type === "delta") {
+            if (ttft === null) ttft = Date.now() - startTime;
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = msgs[msgs.length - 1];
+              msgs[msgs.length - 1] = { ...last, content: last.content + event.text };
+              return msgs;
+            });
+          } else if (event.type === "metadata") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              const last = msgs[msgs.length - 1];
+              msgs[msgs.length - 1] = {
+                ...last,
+                meta: {
+                  model: event.model,
+                  inputTokens: event.input_tokens,
+                  outputTokens: event.output_tokens,
+                  stopReason: event.stop_reason,
+                  ttft: ttft ?? 0,
+                  elapsed: Date.now() - startTime,
+                },
+              };
+              return msgs;
+            });
+          } else if (event.type === "error") {
+            setMessages((prev) => {
+              const msgs = [...prev];
+              msgs[msgs.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
+              return msgs;
+            });
+          }
+        }
+      }
+    } catch {
+      setMessages((prev) => {
+        const msgs = [...prev];
+        if (msgs.length > 0 && msgs[msgs.length - 1].role === "assistant") {
+          msgs[msgs.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
+        } else {
+          msgs.push({ role: "assistant", content: "Something went wrong. Please try again." });
+        }
+        return msgs;
+      });
     } finally {
       setLoading(false);
     }
@@ -71,7 +141,7 @@ export default function Home() {
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
           >
             <div
               className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -80,22 +150,27 @@ export default function Home() {
                   : "bg-white text-zinc-800 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
               }`}
             >
-              {msg.content}
+              {msg.role === "assistant" && loading && i === messages.length - 1 && msg.content === "" ? (
+                <span className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:300ms]" />
+                </span>
+              ) : (
+                msg.content
+              )}
             </div>
+
+            {msg.meta && (
+              <div className="mt-1 px-1 text-xs text-zinc-400 dark:text-zinc-500 font-mono flex gap-3 flex-wrap max-w-[75%]">
+                <span>{msg.meta.model}</span>
+                <span>↑{msg.meta.inputTokens} ↓{msg.meta.outputTokens} tok</span>
+                <span>{msg.meta.stopReason}</span>
+                <span>ttft {msg.meta.ttft}ms · {msg.meta.elapsed}ms</span>
+              </div>
+            )}
           </div>
         ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 rounded-2xl px-4 py-2.5">
-              <span className="flex gap-1 items-center h-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:300ms]" />
-              </span>
-            </div>
-          </div>
-        )}
 
         <div ref={bottomRef} />
       </div>
