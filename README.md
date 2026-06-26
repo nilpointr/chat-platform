@@ -1,113 +1,98 @@
 # Chat Platform
 
-An AI-enabled chatbot MVP built to learn the core concepts of integrating
-large language models into a full-stack web application.
+[![CI](https://github.com/nilpointr/chat-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/nilpointr/chat-platform/actions/workflows/ci.yml)
+
+A learning-focused AI chatbot MVP — built to understand how LLMs integrate
+into a full-stack web application by iterating from working wiring.
 
 ## Stack
 
-| Layer    | Technology                        |
-|----------|-----------------------------------|
+| Layer | Technology |
+|-------|------------|
 | Frontend | Next.js 15 (React, TypeScript, Tailwind CSS) |
-| Backend  | FastAPI (Python 3.10+)            |
-| LLM      | Anthropic Claude (via Python SDK) |
-| Package manager (Python) | [uv](https://docs.astral.sh/uv/) |
+| Backend | FastAPI (Python 3.10+) |
+| LLM | Anthropic Claude (via Python SDK) |
+| Python packages | [uv](https://docs.astral.sh/uv/) |
 
 ## Prerequisites
 
-- **Node.js** v18+ (project developed on v26)
+- **Node.js** v18+
 - **Python** 3.10+
 - **uv** — [install guide](https://docs.astral.sh/uv/getting-started/installation/)
-- An **Anthropic API key** — get one at [console.anthropic.com](https://console.anthropic.com)
-
-## Project Structure
-
-```
-chat-platform/
-├── frontend/          # Next.js app (React, TypeScript, Tailwind)
-│   ├── app/           # App router pages and layouts
-│   └── package.json
-├── backend/           # FastAPI app
-│   ├── main.py        # API entrypoint — /chat endpoint
-│   ├── pyproject.toml # Python project config + dependencies
-│   ├── uv.lock        # Locked dependency versions
-│   └── .env.example   # Environment variable template
-├── .env.example       # Root-level env template (reference)
-├── CLAUDE.md          # AI assistant context file
-└── DESIGN_NOTES.md    # Architecture decisions
-```
+- An **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com)
 
 ## Getting Started
 
-### 1. Clone the repo
-
 ```bash
-git clone <repo-url>
+git clone https://github.com/nilpointr/chat-platform.git
 cd chat-platform
 ```
 
-### 2. Configure the backend environment
+**Configure the backend:**
 
 ```bash
 cp backend/.env.example backend/.env
+# open backend/.env and set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Open `backend/.env` and set your Anthropic API key:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-To develop without hitting the real API, set `MOCK_MODE=true` in `backend/.env`.
-The `/chat` endpoint will return a canned response echoing your message — no
-credits consumed, full HTTP path exercised.
-
-### 3. Install backend dependencies
+**Install dependencies:**
 
 ```bash
-cd backend
-uv sync
+cd backend && uv sync
+cd ../frontend && npm install
 ```
 
-`uv sync` creates a virtual environment (`.venv`) and installs all
-dependencies from `uv.lock` automatically — no manual activation needed
-for running commands via `uv run`.
+## Running
 
-### 4. Install frontend dependencies
+Open two terminals.
 
-```bash
-cd frontend
-npm install
-```
-
-## Running the App
-
-Both services must be running simultaneously. Open two terminal windows.
-
-### Terminal 1 — Backend
+**Terminal 1 — Backend**
 
 ```bash
 cd backend
 uv run uvicorn main:app --reload
+# API available at http://localhost:8000
 ```
 
-The API will be available at `http://localhost:8000`.  
-`--reload` enables hot-reloading on file changes.
-
-### Terminal 2 — Frontend
+**Terminal 2 — Frontend**
 
 ```bash
 cd frontend
 npm run dev
+# App available at http://localhost:3000
 ```
 
-The app will be available at `http://localhost:3000`.
+**Mock mode** — set `MOCK_MODE=true` in `backend/.env` to stream canned
+responses without hitting the Anthropic API. Useful when working on the
+frontend or running integration tests without consuming credits.
+
+## Architecture
+
+The stack is intentionally minimal — direct SDK calls before introducing
+abstractions like LangChain, and conversation history in React state with
+no database.
+
+**Context management** — History lives in React state on the client. Each
+request sends only the last 10 messages (`ROLLING_WINDOW` in
+`backend/main.py`), keeping the context window bounded and costs
+predictable. It also makes the core concept concrete: history is just an
+array you manage manually.
+
+**Streaming** — `POST /chat` returns a `text/event-stream` response. The
+backend uses `AsyncAnthropic` + `client.messages.stream()` to forward
+tokens as they arrive. The frontend reads the stream via `ReadableStream` /
+`getReader()`, growing the assistant bubble token by token. A metadata bar
+below each message shows model, token counts, stop reason,
+time-to-first-token, and total elapsed time.
+
+**No system prompt yet** — persona and domain configuration are
+intentionally deferred. The goal is correct wiring first.
 
 ## API Reference
 
 ### `POST /chat`
 
-Accepts a conversation history and streams the assistant's response as
-Server-Sent Events (SSE).
+Streams the assistant's response as Server-Sent Events.
 
 **Request body**
 
@@ -133,35 +118,11 @@ data: {"type": "metadata", "model": "claude-haiku-4-5-20251001", "input_tokens":
 data: [DONE]
 ```
 
-Event types:
-
-| Type | When | Fields |
-|------|------|--------|
+| Event | When | Fields |
+|-------|------|--------|
 | `delta` | Each text chunk | `text` |
 | `metadata` | After stream ends | `model`, `input_tokens`, `output_tokens`, `stop_reason` |
 | `error` | On API failure | `message` |
-
-**Notes**
-- The backend applies a rolling window of the last 10 messages before
-  forwarding to the model, keeping context costs bounded.
-- The model used is `claude-haiku-4-5-20251001` — fast and cost-efficient
-  for development.
-
-## Key Concepts
-
-**Rolling window context management** — Rather than sending the full
-conversation history on every request, the backend trims the message list
-to the last N messages. This keeps the context window bounded and API
-costs predictable. The value of N is set via `ROLLING_WINDOW` in
-`backend/main.py`.
-
-**Streaming (SSE)** — The backend streams tokens from the model as they
-arrive using `AsyncAnthropic` + `client.messages.stream()`, wrapped in a
-FastAPI `StreamingResponse`. The frontend reads the stream with the
-`ReadableStream` API and updates React state per chunk, giving the
-"typing" effect. A `metadata` event at the end carries token counts, stop
-reason, and model name — displayed below each message as an under-the-hood
-panel.
 
 ## Roadmap
 

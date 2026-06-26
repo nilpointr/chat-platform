@@ -20,4 +20,4 @@ Metadata bar shown below each assistant message.
 ## Principles
 - Keep context window small → cost discipline
 - Direct SDK calls before introducing abstractions (LangChain/LangGraph later)
-- See DESIGN_NOTES.md for full decisions and open items
+- See README.md for architecture decisions and roadmap
