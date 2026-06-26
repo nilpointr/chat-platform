@@ -1,3 +1,5 @@
+import os
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -5,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 load_dotenv()
+
+MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 
 app = FastAPI()
 
@@ -15,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = Anthropic()  # reads ANTHROPIC_API_KEY from environment
+client = Anthropic() if not MOCK_MODE else None
 
 ROLLING_WINDOW = 10  # max messages sent to the model per request
 
@@ -32,6 +36,11 @@ class ChatRequest(BaseModel):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     windowed = request.messages[-ROLLING_WINDOW:]
+
+    if MOCK_MODE:
+        last = windowed[-1].content if windowed else ""
+        return {"message": f"[Mock] Received: {last!r}"}
+
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",

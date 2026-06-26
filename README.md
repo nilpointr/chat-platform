@@ -57,6 +57,10 @@ Open `backend/.env` and set your Anthropic API key:
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+To develop without hitting the real API, set `MOCK_MODE=true` in `backend/.env`.
+The `/chat` endpoint will return a canned response echoing your message — no
+credits consumed, full HTTP path exercised.
+
 ### 3. Install backend dependencies
 
 ```bash
