@@ -1,0 +1,124 @@
+# ─── Third-party docs ────────────────────────────────────────────────────────
+third-party-docs/
+
+# ─── macOS ───────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon?
+
+# ─── VS Code ─────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# ─── Environment & secrets ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.cert
+*.p12
+
+# ─── Node / JavaScript / TypeScript ──────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+.yarn/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.cache/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+dist/
+.eggs/
+.mypy_cache/
+.dmypy.json
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.cover
+
+# ─── Go ──────────────────────────────────────────────────────────────────────
+*.exe
+*.test
+vendor/
+
+# ─── Rust ────────────────────────────────────────────────────────────────────
+target/
+Cargo.lock
+
+# ─── Java / Kotlin ───────────────────────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+build/
+
+# ─── Docker ──────────────────────────────────────────────────────────────────
+.dockerignore
+
+# ─── Databases & local data ──────────────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# ─── Logs & temp files ───────────────────────────────────────────────────────
+logs/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ─── OS / editors (misc) ─────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.idea/
+*.iml
+*.suo
+*.user
