@@ -9,7 +9,7 @@ AI-enabled chatbot MVP. Goal: learn concepts, iterate from working wiring.
 
 ## Context management
 Rolling window of last 10 messages per request (`ROLLING_WINDOW = 10`).
-No system prompt/persona yet.
+Optional `system_prompt` field sent per request; stored in `localStorage` on the client.
 
 ## Streaming
 `POST /chat` returns SSE (`text/event-stream`). Backend uses `AsyncAnthropic` +

@@ -99,6 +99,34 @@ class TestRollingWindow:
         assert len(called_with) == 3
 
 
+class TestSystemPrompt:
+    def test_system_prompt_passed_to_client(self):
+        mock_client = _make_mock_client()
+        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
+            client.post(
+                "/chat",
+                json={"messages": _messages(1), "system_prompt": "You are a pirate."},
+            )
+
+        call_kwargs = mock_client.messages.stream.call_args.kwargs
+        assert call_kwargs.get("system") == "You are a pirate."
+
+    def test_empty_system_prompt_not_passed_to_client(self):
+        mock_client = _make_mock_client()
+        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
+            client.post("/chat", json={"messages": _messages(1), "system_prompt": ""})
+
+        call_kwargs = mock_client.messages.stream.call_args.kwargs
+        assert "system" not in call_kwargs
+
+    def test_mock_mode_echoes_system_prompt(self):
+        res = client.post(
+            "/chat",
+            json={"messages": _messages(1), "system_prompt": "Be a pirate"},
+        )
+        assert "Be a pirate" in _collect_sse_text(res)
+
+
 class TestRequestValidation:
     def test_missing_messages_field_returns_422(self):
         res = client.post("/chat", json={})
