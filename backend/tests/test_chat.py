@@ -71,32 +71,54 @@ class TestMockMode:
         assert res.status_code == 200
 
 
-class TestRollingWindow:
-    def test_trims_to_window_size(self):
-        mock_client = _make_mock_client()
-        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
-            res = client.post("/chat", json={"messages": _messages(15)})
+def _long_messages(n: int, chars_each: int) -> list[dict]:
+    roles = ["user", "assistant"]
+    return [{"role": roles[i % 2], "content": "x" * chars_each} for i in range(n)]
 
-        assert res.status_code == 200
-        called_with = mock_client.messages.stream.call_args.kwargs["messages"]
-        assert len(called_with) == main.ROLLING_WINDOW
 
-    def test_keeps_most_recent_messages(self):
-        mock_client = _make_mock_client()
-        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
-            client.post("/chat", json={"messages": _messages(15)})
-
-        called_with = mock_client.messages.stream.call_args.kwargs["messages"]
-        assert called_with[0]["content"] == "msg 5"
-        assert called_with[-1]["content"] == "msg 14"
-
-    def test_passes_through_when_under_window(self):
+class TestTokenBudget:
+    def test_passes_through_when_under_budget(self):
         mock_client = _make_mock_client()
         with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
             client.post("/chat", json={"messages": _messages(3)})
 
         called_with = mock_client.messages.stream.call_args.kwargs["messages"]
         assert len(called_with) == 3
+
+    def test_trims_when_over_budget(self):
+        mock_client = _make_mock_client()
+        # 20 messages × 1000 chars = 20 000 chars ≈ 5 000 tokens → over 4 096 budget
+        msgs = _long_messages(20, 1000)
+        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
+            client.post("/chat", json={"messages": msgs})
+
+        called_with = mock_client.messages.stream.call_args.kwargs["messages"]
+        total_chars = sum(len(m["content"]) for m in called_with)
+        assert total_chars // 4 <= main.TOKEN_BUDGET
+
+    def test_drops_oldest_pairs(self):
+        mock_client = _make_mock_client()
+        # 6 messages over budget; should drop from the front in pairs
+        msgs = _long_messages(6, 4000)
+        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
+            client.post("/chat", json={"messages": msgs})
+
+        called_with = mock_client.messages.stream.call_args.kwargs["messages"]
+        # Whatever remains should be a suffix of the original
+        remaining_contents = [m["content"] for m in called_with]
+        original_contents = [m["content"] for m in msgs]
+        assert original_contents[-len(remaining_contents):] == remaining_contents
+
+    def test_keeps_final_message_when_history_is_huge(self):
+        mock_client = _make_mock_client()
+        # Each message alone exceeds the budget
+        msgs = _long_messages(3, 20000)
+        with patch.object(main, "MOCK_MODE", False), patch.object(main, "client", mock_client):
+            client.post("/chat", json={"messages": msgs})
+
+        called_with = mock_client.messages.stream.call_args.kwargs["messages"]
+        assert len(called_with) >= 1
+        assert called_with[-1]["content"] == msgs[-1]["content"]
 
 
 class TestSystemPrompt:

@@ -72,11 +72,11 @@ The stack is intentionally minimal — direct SDK calls before introducing
 abstractions like LangChain, and conversation history in React state with
 no database.
 
-**Context management** — History lives in React state on the client. Each
-request sends only the last 10 messages (`ROLLING_WINDOW` in
-`backend/main.py`), keeping the context window bounded and costs
-predictable. It also makes the core concept concrete: history is just an
-array you manage manually.
+**Context management** — History lives in React state on the client. Before
+each request, the backend trims the oldest user+assistant pairs until the
+estimated token count (characters ÷ 4) falls within a 4,096-token budget
+(`TOKEN_BUDGET` in `backend/main.py`). This bounds cost in token terms
+rather than message count, and always preserves the most recent exchange.
 
 **Streaming** — `POST /chat` returns a `text/event-stream` response. The
 backend uses `AsyncAnthropic` + `client.messages.stream()` to forward
@@ -132,6 +132,6 @@ data: [DONE]
 
 - [x] Streaming responses
 - [x] System prompt / persona configuration
-- [ ] Token budget trimming (alternative to fixed rolling window)
+- [x] Token budget trimming (alternative to fixed rolling window)
 - [ ] LangChain / LangGraph integration (agents, RAG)
 - [ ] Deployment

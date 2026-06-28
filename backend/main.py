@@ -23,7 +23,7 @@ app.add_middleware(
 
 client = AsyncAnthropic() if not MOCK_MODE else None
 
-ROLLING_WINDOW = 10  # max messages sent to the model per request
+TOKEN_BUDGET = 4096  # estimated input tokens for the messages array
 
 
 class Message(BaseModel):
@@ -36,9 +36,19 @@ class ChatRequest(BaseModel):
     system_prompt: str = ""
 
 
+def _trim_to_budget(messages: list[Message]) -> list[Message]:
+    # ~4 chars per token; drop oldest pairs until under budget
+    def est(msgs):
+        return sum(len(m.content) for m in msgs) // 4
+
+    while est(messages) > TOKEN_BUDGET and len(messages) >= 2:
+        messages = messages[2:]
+    return messages
+
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    windowed = request.messages[-ROLLING_WINDOW:]
+    windowed = _trim_to_budget(request.messages)
 
     async def generate():
         if MOCK_MODE:
