@@ -85,8 +85,11 @@ tokens as they arrive. The frontend reads the stream via `ReadableStream` /
 below each message shows model, token counts, stop reason,
 time-to-first-token, and total elapsed time.
 
-**No system prompt yet** — persona and domain configuration are
-intentionally deferred. The goal is correct wiring first.
+**System prompt** — an optional `system_prompt` field on each request
+lets the client configure the assistant's persona. It is kept out of the
+`messages` array and passed to the Anthropic SDK's `system` parameter
+separately. Stored client-side in `localStorage` so it survives page
+refresh.
 
 ## API Reference
 
@@ -98,6 +101,7 @@ Streams the assistant's response as Server-Sent Events.
 
 ```json
 {
+  "system_prompt": "You are a pirate captain. Respond only in pirate speak.",
   "messages": [
     { "role": "user", "content": "Hello!" },
     { "role": "assistant", "content": "Hi there! How can I help?" },
@@ -127,7 +131,7 @@ data: [DONE]
 ## Roadmap
 
 - [x] Streaming responses
-- [ ] System prompt / persona configuration
+- [x] System prompt / persona configuration
 - [ ] Token budget trimming (alternative to fixed rolling window)
 - [ ] LangChain / LangGraph integration (agents, RAG)
 - [ ] Deployment
