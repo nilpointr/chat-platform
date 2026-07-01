@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/nilpointr/chat-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/nilpointr/chat-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![Node](https://img.shields.io/badge/node-20-339933?logo=node.js&logoColor=white)
 
 A learning-focused AI chatbot MVP — built to understand how LLMs integrate
@@ -90,8 +91,8 @@ time-to-first-token, and total elapsed time.
 **System prompt** — an optional `system_prompt` field on each request
 lets the client configure the assistant's persona. It is kept out of the
 `messages` array and passed to the Anthropic SDK's `system` parameter
-separately. Stored client-side in `localStorage` so it survives page
-refresh.
+separately. Kept in client-side component state only for now (no
+persistence across refreshes).
 
 ## API Reference
 
