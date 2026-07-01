@@ -75,6 +75,42 @@ The stack is intentionally minimal — direct SDK calls before introducing
 abstractions like LangChain, and conversation history in React state with
 no database.
 
+### Request Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Next.js Frontend
+    participant BE as FastAPI Backend
+    participant Claude as Anthropic API
+
+    User->>FE: Type message, submit
+    FE->>FE: dispatch(user_sent) - append user msg + empty assistant placeholder
+    FE->>BE: POST /chat { messages, system_prompt }
+    BE->>BE: _trim_to_budget(messages)
+    BE->>Claude: messages.stream(model, messages, system?)
+    activate Claude
+    loop Each token
+        Claude-->>BE: text chunk
+        BE-->>FE: SSE data: { type: delta, text }
+        FE->>FE: dispatch(delta) - append token to assistant message
+        FE-->>User: re-render growing bubble
+    end
+    Claude-->>BE: final message (usage, stop_reason, model)
+    deactivate Claude
+    BE-->>FE: SSE data: { type: metadata, ... }
+    FE->>FE: dispatch(metadata) - attach meta to message
+    BE-->>FE: SSE data: [DONE]
+    FE->>FE: setLoading(false)
+
+    alt Claude/network error
+        Claude--xBE: exception
+        BE->>BE: logger.exception(...)
+        BE-->>FE: SSE data: { type: error, message }
+        FE->>FE: dispatch(error) - replace placeholder with generic message
+    end
+```
+
 **Context management** — History lives in React state on the client. Before
 each request, the backend trims the oldest user+assistant pairs until the
 estimated token count (characters ÷ 4) falls within a 4,096-token budget
