@@ -10,7 +10,8 @@ AI-enabled chatbot MVP. Goal: learn concepts, iterate from working wiring.
 ## Context management
 Token-budget trimming: oldest user+assistant pairs are dropped until the
 estimated token count (chars ÷ 4) fits within `TOKEN_BUDGET = 4096`.
-Optional `system_prompt` field sent per request; stored in `localStorage` on the client.
+Optional `system_prompt` field sent per request; kept in component state only
+on the client (no persistence across refreshes yet).
 
 ## Streaming
 `POST /chat` returns SSE (`text/event-stream`). Backend uses `AsyncAnthropic` +
