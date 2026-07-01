@@ -161,3 +161,7 @@ class TestRequestValidation:
     def test_wrong_role_type_returns_422(self):
         res = client.post("/chat", json={"messages": [{"role": 123, "content": "hi"}]})
         assert res.status_code == 422
+
+    def test_invalid_role_value_returns_422(self):
+        res = client.post("/chat", json={"messages": [{"role": "system", "content": "hi"}]})
+        assert res.status_code == 422

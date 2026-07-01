@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+from typing import Literal
 
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
@@ -10,13 +12,16 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_methods=["POST"],
     allow_headers=["*"],
 )
@@ -27,7 +32,7 @@ TOKEN_BUDGET = 4096  # estimated input tokens for the messages array
 
 
 class Message(BaseModel):
-    role: str
+    role: Literal["user", "assistant"]
     content: str
 
 
@@ -72,8 +77,9 @@ async def chat(request: ChatRequest):
                         yield f"data: {json.dumps({'type': 'delta', 'text': text})}\n\n"
                     final = await stream.get_final_message()
                     yield f"data: {json.dumps({'type': 'metadata', 'model': final.model, 'input_tokens': final.usage.input_tokens, 'output_tokens': final.usage.output_tokens, 'stop_reason': final.stop_reason})}\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            except Exception:
+                logger.exception("Error while streaming chat response")
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Something went wrong. Please try again.'})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
